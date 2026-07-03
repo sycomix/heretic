@@ -42,6 +42,11 @@ class ExportStrategy(str, Enum):
     ADAPTER = "adapter"
 
 
+class ModelManipulationOperation(str, Enum):
+    SWAP = "swap"
+    MERGE = "merge"
+
+
 class DatasetSpecification(BaseModel):
     dataset: str = Field(
         description="Hugging Face dataset ID, or path to dataset on disk."
@@ -99,6 +104,49 @@ class BenchmarkSpecification(BaseModel):
 
     description: str = Field(
         description="Description of the benchmark for presentation purposes."
+    )
+
+
+class ModelManipulationSpecification(BaseModel):
+    source_model: str = Field(
+        description="Hugging Face model ID, or path to donor model on disk."
+    )
+
+    source_model_commit: str | None = Field(
+        default=None,
+        description="Hugging Face commit hash of the donor model.",
+    )
+
+    operation: ModelManipulationOperation = Field(
+        default=ModelManipulationOperation.SWAP,
+        description='Operation to apply: "swap" copies donor tensors; "merge" blends donor tensors with base tensors.',
+    )
+
+    weight: float = Field(
+        default=1.0,
+        ge=0.0,
+        le=1.0,
+        description='Blend weight for "merge" operations. 0 keeps the base tensor, 1 copies the donor tensor.',
+    )
+
+    layers: str = Field(
+        default="all",
+        description='Layer selector, such as "all", "0", "0,4,8", or "3-10".',
+    )
+
+    components: list[str] = Field(
+        default=["attn.o_proj", "mlp.down_proj"],
+        description='Component selectors. Built-ins include "attn.o_proj" and "mlp.down_proj"; use "*" for all discoverable components.',
+    )
+
+    experts: str | None = Field(
+        default=None,
+        description='Expert selector for MoE components, such as "all", "0", or "0-3". Unset targets both dense modules and experts.',
+    )
+
+    module_patterns: list[str] = Field(
+        default=[],
+        description="Optional fnmatch patterns for direct named-module tensor surgery.",
     )
 
 
@@ -457,6 +505,36 @@ class Settings(BaseSettings):
     model_action: str | None = Field(
         default=None,
         description='Action to take with the decensored model: "save", "upload", or unset to prompt the user.',
+    )
+
+    manipulations: list[ModelManipulationSpecification] = Field(
+        default=[],
+        description="Model surgery operations to apply before saving an assembled model.",
+        exclude=True,
+    )
+
+    manipulation_save_directory: str | None = Field(
+        default=None,
+        description="Directory to save a model assembled by manipulation operations.",
+        exclude=True,
+    )
+
+    inspect_model: bool = Field(
+        default=False,
+        description="Print a layer/component/expert inspection report for targeting model manipulation operations.",
+        exclude=True,
+    )
+
+    inspection_report_path: str | None = Field(
+        default=None,
+        description="Path to write a JSON layer/component/expert inspection report.",
+        exclude=True,
+    )
+
+    inspection_module_patterns: list[str] = Field(
+        default=[],
+        description="fnmatch patterns for direct named modules to include in the inspection report.",
+        exclude=True,
     )
 
     save_directory: str | None = Field(

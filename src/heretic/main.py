@@ -36,6 +36,7 @@ patch_tqdm()
 """
 
 import logging
+import json
 import math
 import os
 import random
@@ -72,6 +73,11 @@ from rich.traceback import install
 from .analyzer import Analyzer
 from .config import ExportStrategy, QuantizationMethod
 from .evaluator import Evaluator
+from .manipulator import (
+    apply_manipulations,
+    build_model_inspection_report,
+    print_model_inspection_report,
+)
 from .model import AbliterationParameters, Model, get_model_class
 from .reproduce import (
     check_environment,
@@ -407,6 +413,41 @@ def run():
     model = Model(settings)
     print()
     print_memory_usage()
+
+    if settings.inspect_model or settings.inspection_report_path is not None:
+        report = build_model_inspection_report(
+            model,
+            settings.inspection_module_patterns,
+        )
+        if settings.inspect_model:
+            print_model_inspection_report(report)
+        if settings.inspection_report_path is not None:
+            Path(settings.inspection_report_path).write_text(
+                json.dumps(report, indent=4),
+                encoding="utf-8",
+            )
+            print(
+                f"Model inspection report saved to [bold]{settings.inspection_report_path}[/]."
+            )
+
+        if settings.manipulation_save_directory is None:
+            return
+
+    if settings.manipulation_save_directory is not None:
+        print()
+        print("Assembling model from manipulation operations...")
+        assembled_model = apply_manipulations(settings, model)
+        print()
+        print(f"Saving assembled model to [bold]{settings.manipulation_save_directory}[/]...")
+        assembled_model.save_pretrained(
+            settings.manipulation_save_directory,
+            max_shard_size=settings.max_shard_size,
+        )
+        model.tokenizer.save_pretrained(settings.manipulation_save_directory)
+        if model.processor is not None:
+            model.processor.save_pretrained(settings.manipulation_save_directory)
+        print(f"Model saved to [bold]{settings.manipulation_save_directory}[/].")
+        return
 
     print()
     print(f"Loading good prompts from [bold]{settings.good_prompts.dataset}[/]...")

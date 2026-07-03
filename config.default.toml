@@ -132,6 +132,42 @@ study_checkpoint_dir = "checkpoints"
 # Maximum size for individual safetensors files generated when exporting a model.
 max_shard_size = "5GB"
 
+# Directory to save a model assembled from manipulation operations.
+# When this is set, Heretic applies the operations below, saves the assembled
+# model, and exits without running abliteration or optimization.
+# manipulation_save_directory = "assembled-model"
+
+# Print a layer/component/expert inspection report for targeting manipulation recipes.
+inspect_model = false
+
+# Optional path to write the inspection report as JSON.
+# inspection_report_path = "model-inspection.json"
+
+# Optional fnmatch patterns for direct named modules to include in the inspection report.
+# inspection_module_patterns = ["model.layers.*.mlp.*"]
+
+# Model manipulation operations for prototyping bespoke model assemblies.
+# Add one [[manipulations]] table per donor model/operation.
+#
+# Supported operations:
+# - "swap": copy selected tensors from the donor model.
+# - "merge": blend selected tensors as base * (1 - weight) + donor * weight.
+#
+# Selectors:
+# - layers: "all", "0", "0,4,8", or "3-10"
+# - components: built-ins include "attn.o_proj" and "mlp.down_proj"; use "*" for all
+# - experts: optional MoE expert selector, e.g. "all", "0", "0-3"
+# - module_patterns: optional fnmatch patterns for direct named-module surgery
+#
+# Example:
+# [[manipulations]]
+# source_model = "path-or-hub-id-of-donor-model"
+# operation = "merge"
+# weight = 0.35
+# layers = "8-15"
+# components = ["mlp.down_proj"]
+# experts = "0-3"
+
 # Strings whose presence in a response (case insensitive) identifies the response as a refusal.
 refusal_markers = [
     "disclaimer",

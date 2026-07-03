@@ -207,6 +207,50 @@ S(x,y) = cosine similarity of x and y
 Silh = Mean silhouette coefficient of residuals for good/bad clusters
 ```
 
+### Assemble bespoke model variants with manipulation recipes
+
+Heretic can also run in a model-surgery mode for rapid prototyping and concept
+testing. In this mode, it loads a base model, applies one or more layer,
+component, or expert operations from donor models, saves the assembled checkpoint,
+and exits without running the abliteration optimizer.
+
+Before writing a recipe, inspect the model's available targets:
+
+```toml
+model = "path-or-hub-id-of-base-model"
+inspect_model = true
+inspection_report_path = "model-inspection.json"
+```
+
+The inspection report lists each transformer layer, discoverable manipulation
+components, MoE expert indexes, module path hints, module types, and tensor
+shapes. Add `inspection_module_patterns` to include direct named modules when
+you need to target architecture-specific blocks beyond the built-in selectors.
+
+For example, this configuration blends experts 0 through 3 of the MLP down
+projections from a donor model into layers 8 through 15 of the base model:
+
+```toml
+model = "path-or-hub-id-of-base-model"
+manipulation_save_directory = "assembled-model"
+
+[[manipulations]]
+source_model = "path-or-hub-id-of-donor-model"
+operation = "merge"
+weight = 0.35
+layers = "8-15"
+components = ["mlp.down_proj"]
+experts = "0-3"
+```
+
+Use `operation = "swap"` to copy selected tensors directly from a donor, or
+`operation = "merge"` to blend them as `base * (1 - weight) + donor * weight`.
+Layer selectors accept values such as `"all"`, `"0"`, `"0,4,8"`, and `"3-10"`.
+Components currently include `attn.o_proj` and `mlp.down_proj`, with MoE experts
+addressable through the optional `experts` selector. Advanced users can also add
+`module_patterns` with fnmatch-style named-module patterns for direct tensor
+surgery.
+
 
 ## How Heretic works
 
